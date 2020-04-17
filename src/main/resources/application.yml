@@ -1,0 +1,14 @@
+#spring:
+#  data:
+#    elasticsearch:
+#      cluster-name: docker-cluster
+#      cluster-nodes: localhost:9300
+server:
+  servlet:
+    context-path: /ems
+    
+spring:
+  elasticsearch:
+    rest:
+      uris:
+      - http://localhost:9200
