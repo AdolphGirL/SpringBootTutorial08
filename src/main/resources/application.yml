@@ -7,8 +7,9 @@ server:
   servlet:
     context-path: /ems
     
-spring:
-  elasticsearch:
-    rest:
-      uris:
-      - http://localhost:9200
+# 改由java config提供設定，High Level REST Client
+#spring:
+#  elasticsearch:
+#    rest:
+#      uris:
+#      - http://localhost:9200
