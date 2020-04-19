@@ -72,9 +72,9 @@
         @Document: Applied at the class level to indicate this class is a candidate for mapping to the database  
         @Field: Applied at the field level and defines properties of the field  
         ...
-  
+    - Spring Data Elasticsearch uses two interfaces to define the operations that can be called against an Elasticsearch index. These are ElasticsearchOperations and ReactiveElasticsearchOperations。  
     - ElasticsearchTemplate  
-      The ElasticsearchTemplate is an implementation of the ElasticsearchOperations interface using the Transport Client.  
+      The ElasticsearchTemplate is an implementation of the ElasticsearchOperations interface using the Transport Client(Transport Client，is deprecated as of Elasticsearch 7 and will be removed).  
     - ElasticsearchRestTemplate  
       The ElasticsearchRestTemplate is an implementation of the ElasticsearchOperations interface using the High Level REST Client.  
 
@@ -107,7 +107,134 @@
         }
       }
       ```
-    - extends ElasticsearchRepository
+    - extends ElasticsearchRepository  
+
+      The Elasticsearch module supports all basic query building feature as string queries, native search queries, criteria based queries or have it being derived from the method name.  
+
+      Deriving the query from the method name is not always sufficient and/or may result in unreadable method names. In this case one might make use of the @Query annotation  
+
+      Generally the query creation mechanism for Elasticsearch works as described in Query methods. Here’s a short example of what a Elasticsearch query method translates into:  
+
+      ```
+      interface BookRepository extends Repository<Book, String> {
+        List<Book> findByNameAndPrice(String name, Integer price);
+      }
+
+      The method name above will be translated into the following Elasticsearch json query
+
+      {
+          "query": {
+              "bool" : {
+                  "must" : [
+                      { "query_string" : { "query" : "?", "fields" : [ "name" ] } },
+                      { "query_string" : { "query" : "?", "fields" : [ "price" ] } }
+                  ]
+              }
+          }
+      }
+      ```
+
+      Method return types  
+      List<T>、Stream<T>、AggregatedPage<T>  
+
+      Using @Query Annotation  
+      ```
+      interface BookRepository extends ElasticsearchRepository<Book, String> {
+          @Query("{\"match\": {\"name\": {\"query\": \"?0\"}}}")
+          Page<Book> findByName(String name, Pageable pageable);
+      }
+
+      The String that is set as the annotation argument must be a valid Elasticsearch JSON query. It will be sent to Easticsearch as value of the query element; if for example the function is called with the parameter John, it would produce the following query body:
+
+      {
+        "query": {
+          "match": {
+            "name": {
+              "query": "John"
+            }
+          }
+        }
+      }
+      ```
+    - Annotation based configuration  
+
+      he Spring Data Elasticsearch repositories support can be activated using an annotation through JavaConfig.  
+
+      ```
+      @Configuration
+      @EnableElasticsearchRepositories(                             
+        basePackages = "org.springframework.data.elasticsearch.repositories")
+      // 異動為@EnableElasticsearchRepositories(basePackages = "com.reyes.tutorial.repositories")
+        static class Config {
+        
+        // Provide a Bean named elasticsearchTemplate
+        // 記得使用RestHighLevelClient的設定方式
+        // 因為The ElasticsearchTemplate is an implementation of the ElasticsearchOperations 
+        // interface using the Transport Client.(Transport Client，is deprecated as of Elasticsearch 7 and will be removed)
+        // 而AbstractElasticsearchConfiguration，The base class AbstractElasticsearchConfiguration already provides the elasticsearchTemplate bean
+        @Bean
+        public ElasticsearchOperations elasticsearchTemplate() {    
+            // ...
+        }
+
+      }
+
+      class ProductService {
+
+        // Let Spring inject the Repository bean into your class.
+        private ProductRepository repository;                       
+
+        public ProductService(ProductRepository repository) {
+          this.repository = repository;
+        }
+
+        public Page<Product> findAvailableBookByName(String name, Pageable pageable) {
+          return repository.findByAvailableTrueAndNameStartingWith(name, pageable);
+        }
+      }
+      ```
+      
+      @EnableElasticsearchRepositories，he EnableElasticsearchRepositories annotation activates the Repository support. If no base package is configured, it will use the one of the configuration class it is put on  
+
+      Provide a Bean named elasticsearchTemplate of type ElasticsearchOperations by using one of the configurations shown in the Elasticsearch Operations chapter.  
+
+      Let Spring inject the Repository bean into your class.  
+
+      範例設定檔  
+
+      ```
+      @Configuration
+      @EnableElasticsearchRepositories(basePackages = "com.reyes.tutorial.repositories")
+      public class ESRestHighLevelClientConfig extends AbstractElasticsearchConfiguration {
+        
+        @Override
+        public RestHighLevelClient elasticsearchClient() {
+          ClientConfiguration clientConfiguration = ClientConfiguration.builder()
+      //				.connectedTo("localhost:9200", "localhost:9201").build();
+              .connectedTo("localhost:9200").build();
+
+          return RestClients.create(clientConfiguration).rest();
+        }
+        
+      //	Using the Meta Model Object Mapping ElasticsearchMapper.(指定mapping方式)
+      //	Overwrite the default EntityMapper from ElasticsearchConfigurationSupport and expose it as bean.
+        @Bean
+        @Override
+        public EntityMapper entityMapper() {
+          
+      //		Use the provided SimpleElasticsearchMappingContext to avoid inconsistencies and provide a GenericConversionService for Converter registration.
+          ElasticsearchEntityMapper entityMapper = new ElasticsearchEntityMapper(elasticsearchMappingContext(),
+              new DefaultConversionService());
+          
+      //		Optionally set CustomConversions if applicable.
+          entityMapper.setConversions(elasticsearchCustomConversions());
+
+          return entityMapper;
+        }
+      }
+      ```
+
+
 - POJO設定  
   需定義ES存取位置，如下範例
   ```

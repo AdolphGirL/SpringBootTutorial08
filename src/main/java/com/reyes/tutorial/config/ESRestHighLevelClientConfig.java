@@ -9,8 +9,16 @@ import org.springframework.data.elasticsearch.client.RestClients;
 import org.springframework.data.elasticsearch.config.AbstractElasticsearchConfiguration;
 import org.springframework.data.elasticsearch.core.ElasticsearchEntityMapper;
 import org.springframework.data.elasticsearch.core.EntityMapper;
+import org.springframework.data.elasticsearch.repository.config.EnableElasticsearchRepositories;
 
+/**
+ * 1. The base class AbstractElasticsearchConfiguration already provides the elasticsearchTemplate bean
+ * 2. EnableElasticsearchRepositories，he EnableElasticsearchRepositories annotation activates the Repository support. If no base package is configured, it will use the one of the configuration class it is put on。
+ * 		scan the configure packages
+ * 		
+ */
 @Configuration
+@EnableElasticsearchRepositories(basePackages = "com.reyes.tutorial.repositories")
 public class ESRestHighLevelClientConfig extends AbstractElasticsearchConfiguration {
 	
 	@Override
